@@ -4,58 +4,89 @@ import multer from "multer";
 import { Client, Storage, Databases, ID } from "node-appwrite";
 
 const app = express();
-app.use(cors()); // ⭐ FIX: allow requests from React
+
+// ⭐ CORS FIX — REQUIRED FOR React
+app.use(cors({
+  origin: "*",
+  methods: ["GET", "POST"],
+  allowedHeaders: ["Content-Type"]
+}));
+
 app.use(express.json());
 
 // Multer memory storage
 const upload = multer({ storage: multer.memoryStorage() });
 
+// ⭐ Your Appwrite values (plugged in)
+const APPWRITE_ENDPOINT = "https://sfo.cloud.appwrite.io/v1";
+const APPWRITE_PROJECT_ID = "6a66c94d0001f60a4293";
+const APPWRITE_API_KEY = "standard_cc67a33c3e0d731718385d13326a1b68485cf7e5b6b2d9c6e4200b2d5cd497fad2c39e0e1cba4bdf939a298c93b48ce20cb31f24b537650ec04ada0b908eabd2d438cc93cdf21265f2d191e2891c8a9214b378904f281390dae2cc8483eb749de6f996fd86511984ff16b93d83c86ca665ba3f5602a76ad847a6969120f9681d";
+const APPWRITE_BUCKET_ID = "6a764238002e1a726719";
+const APPWRITE_DATABASE_ID = "6a6a605d001a0c4ca679";
+const APPWRITE_COLLECTION_ID = "posts";
+
+// ⭐ Upload route
 app.post("/upload", upload.single("file"), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: "No file uploaded" });
     }
 
-    // Appwrite client
     const client = new Client()
-      .setEndpoint("https://sfo.cloud.appwrite.io/v1") // e.g. https://sfo.cloud.appwrite.io/v1
-      .setProject("6a66c94d0001f60a4293")
-      .setKey("standard_cc67a33c3e0d731718385d13326a1b68485cf7e5b6b2d9c6e4200b2d5cd497fad2c39e0e1cba4bdf939a298c93b48ce20cb31f24b537650ec04ada0b908eabd2d438cc93cdf21265f2d191e2891c8a9214b378904f281390dae2cc8483eb749de6f996fd86511984ff16b93d83c86ca665ba3f5602a76ad847a6969120f9681d");
+      .setEndpoint(APPWRITE_ENDPOINT)
+      .setProject(APPWRITE_PROJECT_ID)
+      .setKey(APPWRITE_API_KEY);
 
     const storage = new Storage(client);
-    const databases = new Databases(client);
 
-    // 1️⃣ Upload file to Appwrite Storage
+    // Upload file to Appwrite Storage
     const uploaded = await storage.createFile(
-      "6a764238002e1a726719",
+      APPWRITE_BUCKET_ID,
       ID.unique(),
       req.file.buffer
     );
 
-    // 2️⃣ Build public URL
+    // Build public URL
     const fileUrl =
-      `${"https://sfo.cloud.appwrite.io/v1"}/storage/buckets/` +
-      `${"6a764238002e1a726719"}/files/${uploaded.$id}/view?project=` +
-      `${"6a66c94d0001f60a4293"}`;
+      `${APPWRITE_ENDPOINT}/storage/buckets/${APPWRITE_BUCKET_ID}/files/${uploaded.$id}/view?project=${APPWRITE_PROJECT_ID}`;
 
-    // 3️⃣ Save URL into "posts" collection
+    res.json({
+      fileUrl,
+      fileId: uploaded.$id,
+      filename: req.file.originalname
+    });
+  } catch (err) {
+    console.error("UPLOAD ERROR:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ⭐ Create Post route
+app.post("/createPost", async (req, res) => {
+  try {
+    const { text, media } = req.body;
+
+    const client = new Client()
+      .setEndpoint(APPWRITE_ENDPOINT)
+      .setProject(APPWRITE_PROJECT_ID)
+      .setKey(APPWRITE_API_KEY);
+
+    const databases = new Databases(client);
+
     const saved = await databases.createDocument(
-      "6a6a605d001a0c4ca679",
-      "posts",
+      APPWRITE_DATABASE_ID,
+      APPWRITE_COLLECTION_ID,
       ID.unique(),
       {
-        url: fileUrl,
-        filename: req.file.originalname,
-        fileId: uploaded.$id
+        text,
+        media,
+        createdAt: Date.now()
       }
     );
 
-    res.json({
-      message: "File uploaded and saved!",
-      fileUrl,
-      post: saved
-    });
+    res.json({ success: true, post: saved });
   } catch (err) {
+    console.error("POST ERROR:", err);
     res.status(500).json({ error: err.message });
   }
 });
