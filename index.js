@@ -5,7 +5,7 @@ import { Client, Storage, Databases, ID } from "node-appwrite";
 
 const app = express();
 
-// ⭐ CORS FIX — REQUIRED FOR React
+// ⭐ CORS FIX — REQUIRED FOR React test
 app.use(cors({
   origin: "*",
   methods: ["GET", "POST"],
