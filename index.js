@@ -1,10 +1,13 @@
 import express from "express";
+import cors from "cors";
 import multer from "multer";
 import { Client, Storage, Databases, ID } from "node-appwrite";
 
 const app = express();
+app.use(cors()); // ⭐ FIX: allow requests from React
+app.use(express.json());
 
-// Multer config (streaming, no temp files)
+// Multer memory storage
 const upload = multer({ storage: multer.memoryStorage() });
 
 app.post("/upload", upload.single("file"), async (req, res) => {
